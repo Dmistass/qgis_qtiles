@@ -83,6 +83,7 @@ class TilingThread(QThread):
         renderOutsideTiles,
         mapUrl,
         viewer,
+        polygon
     ):
         QThread.__init__(self, QThread.currentThread())
         self.mutex = QMutex()
@@ -109,6 +110,7 @@ class TilingThread(QThread):
         self.renderOutsideTiles = renderOutsideTiles
         self.mapurl = mapUrl
         self.viewer = viewer
+        self.polygon = polygon
         if self.output.isDir():
             self.mode = "DIR"
         elif self.output.suffix().lower() == "zip":
@@ -223,7 +225,7 @@ class TilingThread(QThread):
             return
 
         for t in self.tiles:
-            self.render(t)
+            self.render(t, self.polygon)
             self.updateProgress.emit()
             self.mutex.lock()
             s = self.stopMe
@@ -383,11 +385,18 @@ class TilingThread(QThread):
                     subTile = Tile(x, y, tile.z + 1, tile.tms)
                     self.countTiles(subTile)
 
-    def render(self, tile):
+    def render(self, tile, polygon = None):
         # scale = self.scaleCalc.calculate(
         #    self.projector.transform(tile.toRectangle()), self.width)
 
         self.settings.setExtent(self.projector.transform(tile.toRectangle()))
+        tile_rectangle = tile.toRectangle()
+        if polygon:
+            intersects = polygon.intersects(tile_rectangle)
+            with open(r"C:\Users\dmist\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\qtiles\intersects.txt", "a") as f:
+                f.write(f"Tile geometry as polygon: {tile_rectangle.asPolygon()}\nTile: {tile} intersects: {intersects}\n")
+            if not intersects:
+                return  # Skip rendering if no intersection with the polygon
 
         image = QImage(self.settings.outputSize(), QImage.Format_ARGB32)
         image.fill(Qt.transparent)

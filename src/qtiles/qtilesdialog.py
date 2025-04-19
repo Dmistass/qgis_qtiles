@@ -86,6 +86,7 @@ class QTilesDialog(QDialog, FORM_CLASS):
         self.grpParameters.setSettings(self.settings)
         self.btnClose = self.buttonBox.button(QDialogButtonBox.Close)
         self.rbExtentLayer.toggled.connect(self.__toggleLayerSelector)
+        self.rbExtentPolygon.toggled.connect(self.__toggleLayerSelector)
         self.chkLockRatio.stateChanged.connect(self.__toggleHeightEdit)
         self.spnTileWidth.valueChanged.connect(self.__updateTileSize)
         self.btnBrowse.clicked.connect(self.__select_output)
@@ -196,6 +197,9 @@ class QTilesDialog(QDialog, FORM_CLASS):
         )
         self.rbExtentLayer.setChecked(
             self.settings.value("extentLayer", False, type=bool)
+        )
+        self.rbExtentPolygon.setChecked(
+            self.settings.value("extentPolygon", False, type=bool)
         )
         self.spnZoomMin.setValue(self.settings.value("minZoom", 0, type=int))
         self.spnZoomMax.setValue(self.settings.value("maxZoom", 18, type=int))
@@ -335,6 +339,7 @@ class QTilesDialog(QDialog, FORM_CLASS):
             "renderOutsideTiles", self.chkRenderOutsideTiles.isChecked()
         )
         canvas = self.iface.mapCanvas()
+        polygon = None
         if self.rbExtentCanvas.isChecked():
             extent = canvas.extent()
         elif self.rbExtentFull.isChecked():
@@ -346,6 +351,16 @@ class QTilesDialog(QDialog, FORM_CLASS):
             extent = canvas.mapSettings().layerExtentToOutputExtent(
                 layer, layer.extent()
             )
+            if self.rbExtentPolygon.isChecked():
+                # Создаем итератор для получения фичей (объектов) слоя
+                features = layer.getFeatures()
+                
+                # Берем первый полигон из слоя
+                first_feature = next(features, None)
+                with open(r"C:\Users\dmist\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\qtiles\intersects.txt", "a") as f:
+                    f.write(f"{first_feature.id()}\n")
+                    f.write(f"{first_feature.geometry().asWkt()}\n")
+                polygon = first_feature.geometry()
 
         extent = QgsCoordinateTransform(
             canvas.mapSettings().destinationCrs(),
@@ -383,6 +398,7 @@ class QTilesDialog(QDialog, FORM_CLASS):
             self.chkRenderOutsideTiles.isChecked(),
             writeMapurl,
             writeViewer,
+            polygon,
         )
 
         self.workThread.rangeChanged.connect(self.setProgressRange)
