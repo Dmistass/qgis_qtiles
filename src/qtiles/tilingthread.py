@@ -393,8 +393,6 @@ class TilingThread(QThread):
         tile_rectangle = tile.toRectangle()
         if polygon:
             intersects = polygon.intersects(tile_rectangle)
-            with open(r"C:\Users\dmist\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\qtiles\intersects.txt", "a") as f:
-                f.write(f"Tile geometry as polygon: {tile_rectangle.asPolygon()}\nTile: {tile} intersects: {intersects}\n")
             if not intersects:
                 return  # Skip rendering if no intersection with the polygon
 

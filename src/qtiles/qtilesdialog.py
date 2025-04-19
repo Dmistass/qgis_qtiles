@@ -357,9 +357,6 @@ class QTilesDialog(QDialog, FORM_CLASS):
                 
                 # Берем первый полигон из слоя
                 first_feature = next(features, None)
-                with open(r"C:\Users\dmist\AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins\qtiles\intersects.txt", "a") as f:
-                    f.write(f"{first_feature.id()}\n")
-                    f.write(f"{first_feature.geometry().asWkt()}\n")
                 polygon = first_feature.geometry()
 
         extent = QgsCoordinateTransform(
