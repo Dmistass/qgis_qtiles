@@ -26,7 +26,7 @@ import math
 import operator
 import os
 
-from qgis.core import QgsRectangle
+from qgis.core import QgsRectangle, QgsGeometry
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import QDir, QFileInfo, Qt, pyqtSlot
 from qgis.PyQt.QtGui import QIcon
@@ -352,12 +352,22 @@ class QTilesDialog(QDialog, FORM_CLASS):
                 layer, layer.extent()
             )
             if self.rbExtentPolygon.isChecked():
-                # Создаем итератор для получения фичей (объектов) слоя
-                features = layer.getFeatures()
-                
-                # Берем первый полигон из слоя
-                first_feature = next(features, None)
-                polygon = first_feature.geometry()
+                try:
+                    # Создаем итератор для получения фичей (объектов) слоя
+                    features = layer.getFeatures()
+                    
+                    # Список геометрий
+                    geometries = [f.geometry() for f in features]
+
+                    # Объединяем все в один мультиполигон
+                    polygon = QgsGeometry.unaryUnion(geometries)
+                except Exception as e:
+                    QMessageBox.warning(
+                        self,
+                        self.tr("Error"),
+                        self.tr("Failed to get polygon from layer: %s") % str(e),
+                    )
+                    return
 
         extent = QgsCoordinateTransform(
             canvas.mapSettings().destinationCrs(),

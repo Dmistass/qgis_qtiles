@@ -360,6 +360,25 @@ class TilingThread(QThread):
         if self.interrupted or not self.extent.intersects(tile.toRectangle()):
             return
         if self.minZoom <= tile.z and tile.z <= self.maxZoom:
+            """if not self.renderOutsideTiles:
+                for layer in self.layers:
+                    tile_rectangle = tile.toRectangle()
+                    t = QgsCoordinateTransform(
+                        layer.crs(),
+                        QgsCoordinateReferenceSystem.fromEpsgId(4326),
+                    )
+                    if t.transform(layer.extent()).intersects(
+                        tile.toRectangle()
+                        tile_rectangle
+                    ):
+                        self.tiles.append(tile)
+                        if self.polygon:
+                            intersects = self.polygon.intersects(tile_rectangle)
+                            if intersects:
+                                self.tiles.append(tile)
+                        else:
+                            self.tiles.append(tile)
+                        break"""
             if not self.renderOutsideTiles:
                 for layer in self.layers:
                     t = QgsCoordinateTransform(
@@ -371,6 +390,7 @@ class TilingThread(QThread):
                     ):
                         self.tiles.append(tile)
                         break
+            
             else:
                 self.tiles.append(tile)
         if tile.z < self.maxZoom:
