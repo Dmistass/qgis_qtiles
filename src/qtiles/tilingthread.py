@@ -33,9 +33,12 @@ from qgis.core import (
     QgsMessageLog,
     QgsProject,
     QgsScaleCalculator,
+    QgsGeometry,
+    QgsMapToPixel,
+    QgsWkbTypes,
 )
 from qgis.PyQt.QtCore import QFile, QIODevice, QMutex, Qt, QThread, pyqtSignal
-from qgis.PyQt.QtGui import QColor, QImage, QPainter
+from qgis.PyQt.QtGui import QPainter, QImage, QBrush, QColor, QPainterPath
 from qgis.PyQt.QtWidgets import *
 
 from . import resources_rc  # noqa: F401
@@ -83,7 +86,9 @@ class TilingThread(QThread):
         renderOutsideTiles,
         mapUrl,
         viewer,
-        polygon
+        polygon,
+        usePolygonMask,
+        renderBoundaries="all"
     ):
         QThread.__init__(self, QThread.currentThread())
         self.mutex = QMutex()
@@ -111,6 +116,8 @@ class TilingThread(QThread):
         self.mapurl = mapUrl
         self.viewer = viewer
         self.polygon = polygon
+        self.usePolygonMask = usePolygonMask
+        self.renderBoundaries = renderBoundaries
         if self.output.isDir():
             self.mode = "DIR"
         elif self.output.suffix().lower() == "zip":
@@ -405,16 +412,117 @@ class TilingThread(QThread):
                     subTile = Tile(x, y, tile.z + 1, tile.tms)
                     self.countTiles(subTile)
 
-    def render(self, tile, polygon = None):
+    
+    @staticmethod
+    def mask_image_fast(settings, image, polygon):
+        """
+        settings: текущий QgsMapSettings из вашего класса
+        image: QImage тайла
+        polygon: QgsGeometry (маска в WGS84)
+        """
+        # 1. Создаем CRS (используем безопасный метод)
+        poly_crs = QgsCoordinateReferenceSystem.fromEpsgId(4326) # Маска обычно в 4326
+        dest_crs = settings.destinationCrs()
+
+        # 2. Исправленный конструктор трансформации (только 2 аргумента)
+        # В QGIS 3.34 для стабильности лучше использовать только SRC и DEST
+        # xform = QgsCoordinateTransform(poly_crs, dest_crs, QgsProject.instance()) 
+        # Если снова будет ошибка про 4 аргумента, замените строку выше на:
+        xform = QgsCoordinateTransform(poly_crs, dest_crs)
+
+        # 3. Трансформируем маску
+        mask_geom = QgsGeometry(polygon)
+        mask_geom.transform(xform)
+
+        # 4. Получаем границы тайла (Extent)
+        extent = settings.extent()
+        tile_geom = QgsGeometry.fromRect(extent)
+
+        # Находим пересечение
+        intersection = mask_geom.intersection(tile_geom)
+
+        # Если пересечения нет — тайл пустой
+        if intersection.isEmpty():
+            image.fill(Qt.transparent)
+            return image
+
+        # !!! ГЛАВНОЕ ИСПРАВЛЕНИЕ: Проверяем тип геометрии !!!
+        # Нас интересуют только площади (Polygon / MultiPolygon). 
+        # Если пересечение — это точка или линия, значит площади пересечения нет.
+        if intersection.type() != QgsWkbTypes.PolygonGeometry:
+            image.fill(Qt.transparent)
+            return image
+
+        # 5. Создаем маску-холст
+        mask = QImage(image.size(), QImage.Format_ARGB32)
+        mask.fill(Qt.transparent)
+
+        # 6. Используем MapToPixel (лучший способ синхронизации ГИС и Пикселей)
+        m2p = QgsMapToPixel(
+            settings.mapUnitsPerPixel(),
+            extent.center().x(),
+            extent.center().y(),
+            image.width(),
+            image.height(),
+            settings.rotation()
+        )
+
+        painter = QPainter(mask)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setBrush(QColor(0, 0, 0)) # Цвет любой, важна альфа
+        painter.setPen(Qt.NoPen)
+
+        # 7. Преобразуем геометрию в путь QPainterPath
+        # Обрабатываем и MultiPolygon и обычный Polygon
+        parts = intersection.asMultiPolygon() if intersection.isMultipart() else [intersection.asPolygon()]
+        
+        for poly in parts:
+            path = QPainterPath()
+            for ring in poly:
+                for i, pt in enumerate(ring):
+                    # Точная конвертация координат карты в пиксели картинки
+                    pixel_pt = m2p.transform(pt.x(), pt.y())
+                    if i == 0:
+                        path.moveTo(pixel_pt.x(), pixel_pt.y())
+                    else:
+                        path.lineTo(pixel_pt.x(), pixel_pt.y())
+                path.closeSubpath()
+            painter.drawPath(path)
+        
+        painter.end()
+
+        # 8. Накладываем маску на исходный тайл
+        final_painter = QPainter(image)
+        final_painter.setCompositionMode(QPainter.CompositionMode_DestinationIn)
+        final_painter.drawImage(0, 0, mask)
+        final_painter.end()
+
+        return image
+
+
+
+    def render(self, tile, polygon=None):
         # scale = self.scaleCalc.calculate(
         #    self.projector.transform(tile.toRectangle()), self.width)
 
         self.settings.setExtent(self.projector.transform(tile.toRectangle()))
         tile_rectangle = tile.toRectangle()
+        
+        # Determine whether to skip the tile based on renderBoundaries setting
         if polygon:
             intersects = polygon.intersects(tile_rectangle)
-            if not intersects:
-                return  # Skip rendering if no intersection with the polygon
+            tile_geometry = QgsGeometry.fromRect(tile_rectangle)
+            contains = polygon.contains(tile_geometry)
+            
+            if self.renderBoundaries == "intersects":
+                if not intersects or contains:
+                    return  # Skip rendering if no intersection and fully contained
+            elif self.renderBoundaries == "contains":
+                if not contains:
+                    return  # Skip rendering if not fully contained
+            elif self.renderBoundaries == "all":
+                if not intersects:
+                    return  # Skip rendering if no intersection
 
         image = QImage(self.settings.outputSize(), QImage.Format_ARGB32)
         image.fill(Qt.transparent)
@@ -432,6 +540,15 @@ class TilingThread(QThread):
         job = QgsMapRendererCustomPainterJob(self.settings, painter)
         job.renderSynchronously()
         painter.end()
+        
+        # Apply polygon masking if enabled and polygon exists
+        if self.usePolygonMask and polygon:
+            if contains:
+                # If the tile is completely within the polygon, we can skip masking
+                pass
+            else:
+                image = self.mask_image_fast(self.settings, image, polygon)
+        
         self.writer.writeTile(tile, image, self.format, self.quality)
 
 

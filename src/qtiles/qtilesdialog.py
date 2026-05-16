@@ -86,7 +86,6 @@ class QTilesDialog(QDialog, FORM_CLASS):
         self.grpParameters.setSettings(self.settings)
         self.btnClose = self.buttonBox.button(QDialogButtonBox.Close)
         self.rbExtentLayer.toggled.connect(self.__toggleLayerSelector)
-        self.rbExtentPolygon.toggled.connect(self.__toggleLayerSelector)
         self.chkLockRatio.stateChanged.connect(self.__toggleHeightEdit)
         self.spnTileWidth.valueChanged.connect(self.__updateTileSize)
         self.btnBrowse.clicked.connect(self.__select_output)
@@ -198,8 +197,11 @@ class QTilesDialog(QDialog, FORM_CLASS):
         self.rbExtentLayer.setChecked(
             self.settings.value("extentLayer", False, type=bool)
         )
-        self.rbExtentPolygon.setChecked(
-            self.settings.value("extentPolygon", False, type=bool)
+        self.chkPolygonExtent.setChecked(
+            self.settings.value("chkPolygonExtent", False, type=bool)
+        )
+        self.chkUsePolygonMask.setChecked(
+            self.settings.value("chkUsePolygonMask", False, type=bool)
         )
         self.spnZoomMin.setValue(self.settings.value("minZoom", 0, type=int))
         self.spnZoomMax.setValue(self.settings.value("maxZoom", 18, type=int))
@@ -240,6 +242,9 @@ class QTilesDialog(QDialog, FORM_CLASS):
         )
         self.chkRenderOutsideTiles.setChecked(
             self.settings.value("renderOutsideTiles", True, type=bool)
+        )
+        self.cmbRenderBoundaries.setCurrentIndex(
+            self.settings.value("renderBoundaries", 0, type=int)
         )
 
         self.formatChanged()
@@ -338,6 +343,12 @@ class QTilesDialog(QDialog, FORM_CLASS):
         self.settings.setValue(
             "renderOutsideTiles", self.chkRenderOutsideTiles.isChecked()
         )
+        self.settings.setValue(
+            "chkUsePolygonMask", self.chkUsePolygonMask.isChecked()
+        )
+        self.settings.setValue(
+            "renderBoundaries", self.cmbRenderBoundaries.currentIndex()
+        )
         canvas = self.iface.mapCanvas()
         polygon = None
         if self.rbExtentCanvas.isChecked():
@@ -351,7 +362,7 @@ class QTilesDialog(QDialog, FORM_CLASS):
             extent = canvas.mapSettings().layerExtentToOutputExtent(
                 layer, layer.extent()
             )
-            if self.rbExtentPolygon.isChecked():
+            if self.chkPolygonExtent.isChecked():
                 try:
                     # Создаем итератор для получения фичей (объектов) слоя
                     features = layer.getFeatures()
@@ -406,6 +417,8 @@ class QTilesDialog(QDialog, FORM_CLASS):
             writeMapurl,
             writeViewer,
             polygon,
+            self.chkUsePolygonMask.isChecked(),
+            self.cmbRenderBoundaries.currentText(),
         )
 
         self.workThread.rangeChanged.connect(self.setProgressRange)

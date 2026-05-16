@@ -110,23 +110,6 @@
          <item>
           <widget class="QLineEdit" name="leRootDir"/>
          </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_5">
-          <item>
-            <widget class="QRadioButton" name="rbExtentPolygon">
-            <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-              </sizepolicy>
-            </property>
-            <property name="text">
-              <string>Polygon extent</string>
-            </property>
-            </widget>
-          </item>
-          </layout>
-         </item>
         </layout>
        </item>
        <item>
@@ -533,6 +516,99 @@
                </size>
               </property>
              </spacer>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="groupBoxRenderSettings">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="title">
+          <string>Render settings</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayoutRender">
+          <property name="leftMargin">
+           <number>0</number>
+          </property>
+          <property name="topMargin">
+           <number>6</number>
+          </property>
+          <property name="rightMargin">
+           <number>0</number>
+          </property>
+          <property name="bottomMargin">
+           <number>9</number>
+          </property>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayoutPolygon">
+            <item>
+             <widget class="QCheckBox" name="chkPolygonExtent">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Polygon extent</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QCheckBox" name="chkUsePolygonMask">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Ignored" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="text">
+               <string>Use polygon mask</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="horizontalLayoutBoundaries">
+            <item>
+             <widget class="QLabel" name="labelRenderBoundaries">
+              <property name="text">
+               <string>Render within boundaries</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="cmbRenderBoundaries">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <item>
+               <property name="text">
+                <string>all</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>intersects</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>contains</string>
+               </property>
+              </item>
+             </widget>
             </item>
            </layout>
           </item>
